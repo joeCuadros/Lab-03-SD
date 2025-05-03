@@ -9,12 +9,14 @@ public class Client {
     private Socket socket; // objeto socket
     private String server, username; // server y username
     private int port; //puerto
+    //METODOS NO USADOS
+    /* 
     public String getUsername() {
         return username;
     }
     public void setUsername(String username) {
         this.username = username;
-    }
+    }*/
     // constructor
     Client(String server, int port, String username) {
         this.server = server;

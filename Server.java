@@ -16,6 +16,12 @@ public class Server {
         sdf = new SimpleDateFormat("HH:mm:ss"); //tiempo hh:mm:ss
         al = new ArrayList<ClientThread>();
     }
+
+    private void display(String msg) {
+        String time = sdf.format(new Date()) + " " + msg;
+        System.out.println(time);
+    }
+    
     public void start() {
         keepGoing = true;
         try{
@@ -33,7 +39,6 @@ public class Server {
                 for(int i = 0; i < al.size(); ++i) {
                     ClientThread tc = al.get(i);
                     try {
-                        // close all data streams and socket
                         tc.sInput.close();
                         tc.sOutput.close();
                         tc.socket.close();
@@ -58,38 +63,28 @@ public class Server {
         }
     }*/
 
-    // Display an event to the console
-    private void display(String msg) {
-        String time = sdf.format(new Date()) + " " + msg;
-        System.out.println(time);
-    }
 
     private synchronized boolean broadcast(String message, String username) {
         String time = sdf.format(new Date());
         String[] word = message.split(" ",2);
-        boolean isPrivate = false;
         //mensaje usuarios
-        if(word[0].charAt(0)=='@') isPrivate=true; //@user es privado
+        boolean isPrivate = word[0].charAt(0)=='@'; //@user es privado
         if(isPrivate==true && !username.equals("")){
             String tocheck=word[0].substring(1, word[0].length()); //extraer usuario
-            if (word.length == 1) return false; //si no hay mensaje
+            if (word.length == 1 || tocheck.equals("")) return false; //si no hay mensaje o cliente final
             String messageLf = time + " (" + username+") [privado] "+word[1]; //mensaje
-            boolean found=false;
-            if (tocheck.equals("")) return false; //si el usuario es ''
             // buscando cliente con ese nombre
-            for(int y=al.size(); --y>=0;){
-                ClientThread ct1=al.get(y);
+            for(ClientThread ct1 : al) { //convertido a for-each
                 String check=ct1.getUsername();
                 if(check.equals(tocheck)){
                     if(!ct1.writeMsg(messageLf)) { //intenta mandar mensaje
-                        al.remove(y);
+                        al.remove(ct1.id);
                         display("Client desconectado " + ct1.username + " eliminado de la lista.");
                     }
-                    found=true;
-                    break;
+                    return true;
                 }
             }
-            return found;
+            return false; //no encontrado
         } else {
             String messageLf;
             // notificacion 
@@ -99,11 +94,10 @@ public class Server {
                 messageLf = time + " (" + username+") "+message;
             }
             System.out.println(messageLf);
-            for(int i = al.size(); --i >= 0;) {
-                ClientThread ct = al.get(i);
+            for(ClientThread ct : al) { //convertido a for-each
                 if (ct.getUsername().equals(username)) continue;
-                if(!ct.writeMsg(messageLf)) { //inteneta mandar mensaje
-                    al.remove(i);
+                if(!ct.writeMsg(messageLf)) { //intenta mandar mensaje
+                    al.remove(ct.id);
                     display("Client desconectado " + ct.username + " eliminado de la lista.");
                 }
             }
@@ -173,9 +167,10 @@ public class Server {
         public String getUsername() {
             return username;
         }
-        public void setUsername(String username) {
+        // NO SE USA
+        /*public void setUsername(String username) {
             this.username = username;
-        }
+        }*/
         public void run() {
             boolean keepGoing = true;
             while(keepGoing) {
