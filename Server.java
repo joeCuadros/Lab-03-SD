@@ -12,7 +12,7 @@ public class Server {
     private String notif = " *** "; //notificacion
 
     public Server(int port) {
-        this.port = port;
+        this.port = port; //puerto
         sdf = new SimpleDateFormat("HH:mm:ss"); //tiempo hh:mm:ss
         al = new ArrayList<ClientThread>();
     }
@@ -22,7 +22,7 @@ public class Server {
             ServerSocket serverSocket = new ServerSocket(port);
             while(keepGoing){
                 display("Server esperando a Clientes en el puerto " + port + ".");
-                Socket socket = serverSocket.accept();
+                Socket socket = serverSocket.accept(); //esperar hasta que conecte
                 if(!keepGoing) break;
                 ClientThread t = new ClientThread(socket);
                 al.add(t);
@@ -48,16 +48,15 @@ public class Server {
             display(msg);
         }
     }
-
-    // to stop the server
-    protected void stop() {
+    // NO SE UTILIZA ESTE METODO
+    /*protected void stop() {
         keepGoing = false;
         try {
             new Socket("localhost", port);
         }
             catch(Exception e) {
         }
-    }
+    }*/
 
     // Display an event to the console
     private void display(String msg) {
@@ -65,21 +64,24 @@ public class Server {
         System.out.println(time);
     }
 
-    private synchronized boolean broadcast(String message) {
+    private synchronized boolean broadcast(String message, String username) {
         String time = sdf.format(new Date());
-        String[] w = message.split(" ",3);
+        String[] word = message.split(" ",2);
         boolean isPrivate = false;
-        if(w[1].charAt(0)=='@') isPrivate=true;
-        if(isPrivate==true){
-            String tocheck=w[1].substring(1, w[1].length());
-            message=w[0]+w[2];
-            String messageLf = time + " " + message;
+        //mensaje usuarios
+        if(word[0].charAt(0)=='@') isPrivate=true; //@user es privado
+        if(isPrivate==true && !username.equals("")){
+            String tocheck=word[0].substring(1, word[0].length()); //extraer usuario
+            if (word.length == 1) return false; //si no hay mensaje
+            String messageLf = time + " (" + username+") [privado] "+word[1]; //mensaje
             boolean found=false;
+            if (tocheck.equals("")) return false; //si el usuario es ''
+            // buscando cliente con ese nombre
             for(int y=al.size(); --y>=0;){
                 ClientThread ct1=al.get(y);
                 String check=ct1.getUsername();
                 if(check.equals(tocheck)){
-                    if(!ct1.writeMsg(messageLf)) {
+                    if(!ct1.writeMsg(messageLf)) { //intenta mandar mensaje
                         al.remove(y);
                         display("Client desconectado " + ct1.username + " eliminado de la lista.");
                     }
@@ -87,16 +89,20 @@ public class Server {
                     break;
                 }
             }
-            if(found!=true){
-                return false;
-            }
+            return found;
         } else {
-            String messageLf = time + " " + message ;
-            System.out.print(messageLf+ "\n");
+            String messageLf;
+            // notificacion 
+            if(username.equals("")){
+                messageLf = time + " " + notif + message + notif;
+            }else{
+                messageLf = time + " (" + username+") "+message;
+            }
+            System.out.println(messageLf);
             for(int i = al.size(); --i >= 0;) {
                 ClientThread ct = al.get(i);
-                // try to write to the Client if it fails remove it from the list
-                if(!ct.writeMsg(messageLf)) {
+                if (ct.getUsername().equals(username)) continue;
+                if(!ct.writeMsg(messageLf)) { //inteneta mandar mensaje
                     al.remove(i);
                     display("Client desconectado " + ct.username + " eliminado de la lista.");
                 }
@@ -107,21 +113,20 @@ public class Server {
 
     synchronized void remove(int id) {
         String disconnectedClient = "";
-        // scan the array list until we found the Id
         for(int i = 0; i < al.size(); ++i) {
             ClientThread ct = al.get(i);
-            // if found remove it
+            // cliente encontrado
             if(ct.id == id) {
                 disconnectedClient = ct.getUsername();
                 al.remove(i);
                 break;
             }
         }
-        broadcast(notif + disconnectedClient + " ha abandonado la sala de chat." + notif);
+        broadcast(disconnectedClient + " ha abandonado la sala de chat.", "");
     }
 
     public static void main(String[] args) {
-        // start server on port 1500 unless a PortNumber is specified
+        // crear servidor
         int portNumber = 1500;
         switch(args.length) {
         case 1:
@@ -138,8 +143,7 @@ public class Server {
             System.out.println("Use: > java Server [portNumber]");
             return;
         }
-        // create a server object and start it
-        Server server = new Server(portNumber);
+        Server server = new Server(portNumber); //nuevo server
         server.start();
     }
 
@@ -152,20 +156,19 @@ public class Server {
         ChatMessage cm;
         String date;
         ClientThread(Socket socket) {
-            id = ++uniqueId;
+            id = ++uniqueId; //id unico
             this.socket = socket;
             System.out.println("Thread intentando crear Object Input/Output Streams");
             try{
                 sOutput = new ObjectOutputStream(socket.getOutputStream());
                 sInput = new ObjectInputStream(socket.getInputStream());
-                // read the username
                 username = (String) sInput.readObject();
-                broadcast(notif + username + " se ha unido a la sala de chat." + notif);
+                broadcast(username + " se ha unido a la sala de chat.","");
             } catch (IOException e) {
                 display("Excepcion al crear nuevo Input/output Streams: " + e);
                 return;
             }catch (ClassNotFoundException e) {}
-            date = new Date().toString() + "\n";
+            date = new Date().toString();
         }
         public String getUsername() {
             return username;
@@ -177,9 +180,9 @@ public class Server {
             boolean keepGoing = true;
             while(keepGoing) {
                 try {
-                    cm = (ChatMessage) sInput.readObject();
+                    cm = (ChatMessage) sInput.readObject(); //recepcionar mensaje
                 } catch (IOException e) {
-                    display(username + " Excepción de lectura Streams: " + e);
+                    display(username + " Excepcion de lectura Streams: " + e);
                     break;
                 } catch (ClassNotFoundException e2) {
                     break;
@@ -187,7 +190,7 @@ public class Server {
                 String message = cm.getMessage();
                 switch(cm.getType()) {
                     case ChatMessage.MESSAGE:
-                        boolean confirmation = broadcast(username + ": " + message);
+                        boolean confirmation = broadcast(message,username);
                         if(confirmation==false){
                             String msg = notif + "Lo siento. Ese usuario no existe." + notif;
                             writeMsg(msg);

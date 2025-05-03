@@ -1,31 +1,32 @@
 import java.net.*;
 import java.io.*;
 import java.util.*;
-//The Client that can be run as a console
+//Ejecucion de cliente
 public class Client {
-    // notification
-    private String notif = " *** ";
-    // for I/O
-    private ObjectInputStream sInput; // to read from the socket
-    private ObjectOutputStream sOutput; // to write on the socket
-    private Socket socket; // socket object
-    private String server, username; // server and username
-    private int port; //port
+    private String notif = " *** "; //prefijo y sufijo
+    private ObjectInputStream sInput; // lectura en el socket
+    private ObjectOutputStream sOutput; // escritura en el socket
+    private Socket socket; // objeto socket
+    private String server, username; // server y username
+    private int port; //puerto
     public String getUsername() {
         return username;
     }
     public void setUsername(String username) {
         this.username = username;
     }
-
+    // constructor
     Client(String server, int port, String username) {
         this.server = server;
         this.port = port;
         this.username = username;
     }
+    private void display(String msg) {
+        System.out.println(msg);
+    }
     public boolean start() {
         try {
-            socket = new Socket(server, port);
+            socket = new Socket(server, port); //crear 
         }catch(Exception ec) {
             display("Error al conectarse al servidor:" + ec);
             return false;
@@ -39,7 +40,7 @@ public class Client {
             display("Excepcion al crear nuevos flujos de entrada/salida: " + eIO);
             return false;
         }
-        new ListenFromServer().start();
+        new ListenFromServer().start(); //crea hilo
         try{
             sOutput.writeObject(username);
         }catch (IOException eIO) {
@@ -49,9 +50,7 @@ public class Client {
         }
         return true;
     }
-    private void display(String msg) {
-        System.out.println(msg);
-    }
+    
     void sendMessage(ChatMessage msg) {
         try {
             sOutput.writeObject(msg);
@@ -60,6 +59,7 @@ public class Client {
             display("Excepcion al escribir en el servidor: " + e);
         }
     }
+    //liberar recursos
     private void disconnect() {
         try {
             if(sInput != null) sInput.close();
@@ -74,11 +74,12 @@ public class Client {
     }
 
     public static void main(String[] args) {
+        // predeterminado
         int portNumber = 1500;
         String serverAddress = "localhost";
         String userName = "Anonymous";
         Scanner scan = new Scanner(System.in);
-        
+        // configuracion
         switch(args.length) {
             case 3:
                 // caso > java Client username portNumber [serverAddr]
@@ -97,13 +98,16 @@ public class Client {
                 userName = args[0];
                 break;
             case 0:
-                System.out.println("Enter the username: ");
-                userName = scan.nextLine();
+                System.out.print("Ingrese nombre de usuario: ");
+                String user = scan.nextLine();
+                if (!user.trim().equals("")) userName = user;
                 break;
             default:
                 System.out.println("Use: > java Client [username] [portNumber] [serverAddress]");
+                scan.close();
+                return;
         }
-        Client client = new Client(serverAddress, portNumber, userName);
+        Client client = new Client(serverAddress, portNumber, userName); //crear cliente
         if(!client.start()){
             scan.close();
             return;
@@ -116,18 +120,17 @@ public class Client {
         System.out.println("4. Escribe 'LOGOUT' (sin comillas) para cerrar sesión y salir del chat.");
         while(true) {
             System.out.print("> ");
-            // read message from user
-            String msg = scan.nextLine();
-            // logout if message is LOGOUT
+            String msg = scan.nextLine(); //escribir mensaje de usuario
+            // LOGOUT
             if(msg.equalsIgnoreCase("LOGOUT")) {
                 client.sendMessage(new ChatMessage(ChatMessage.LOGOUT, ""));
                 break;
             }
-            // message to check who are present in chatroom
+            // Listar usuarios
             else if(msg.equalsIgnoreCase("WHOISIN")) {
                 client.sendMessage(new ChatMessage(ChatMessage.WHOISIN, ""));
             }
-            // regular text message
+            // Mensaje normal
             else {
                 client.sendMessage(new ChatMessage(ChatMessage.MESSAGE, msg));
             }
@@ -139,13 +142,11 @@ public class Client {
         public void run() {
         while(true) {
             try {
-                // read the message form the input datastream
                 String msg = (String) sInput.readObject();
-                // print the message
-                System.out.println(msg);
+                System.out.println("\r"+msg); // escribir sin >
                 System.out.print("> ");
             } catch(IOException e) {
-                display(notif + "El servidor ha cerrado la conexión: " + e + notif);
+                display(notif + "El servidor ha cerrado la conexion: " + e + notif);
                 break;
             } catch(ClassNotFoundException e2) {}
         }
